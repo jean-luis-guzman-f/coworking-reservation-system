@@ -1,5 +1,8 @@
-﻿using CoworkingReservation.API.Models.DTOs;
+﻿using CoworkingReservation.API.Data;
+using CoworkingReservation.API.Models.DTOs;
+using CoworkingReservation.API.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Controllers;
 
@@ -7,33 +10,50 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class ReservationsController : ControllerBase
 {
-    private static readonly List<ReservationDto> Reservations =
-    [
-        new ReservationDto
-        {
-            Id = 1,
-            UserId = 1,
-            SpaceId = 1,
-            StartTime = DateTime.UtcNow.AddHours(1),
-            EndTime = DateTime.UtcNow.AddHours(3),
-            Status = "Pending",
-            TotalAmount = 500,
-            CreatedAt = DateTime.UtcNow
-        }
-    ];
+    private readonly ApplicationDbContext _context;
 
-    private static int _nextId = 2;
+    public ReservationsController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
 
     [HttpGet]
-    public ActionResult<IEnumerable<ReservationDto>> GetAll()
+    public async Task<ActionResult<IEnumerable<ReservationDto>>> GetAll()
     {
-        return Ok(Reservations);
+        var reservations = await _context.Reservation
+            .Select(reservation => new ReservationDto
+            {
+                Id = reservation.Id,
+                UserId = reservation.UserId,
+                SpaceId = reservation.SpaceId,
+                StartTime = reservation.StartTime,
+                EndTime = reservation.EndTime,
+                Status = reservation.Status.ToString(),
+                TotalAmount = reservation.TotalAmount,
+                CreatedAt = reservation.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(reservations);
     }
 
     [HttpGet("{id:int}")]
-    public ActionResult<ReservationDto> GetById(int id)
+    public async Task<ActionResult<ReservationDto>> GetById(int id)
     {
-        var reservation = Reservations.FirstOrDefault(reservation => reservation.Id == id);
+        var reservation = await _context.Reservation
+            .Where(reservation => reservation.Id == id)
+            .Select(reservation => new ReservationDto
+            {
+                Id = reservation.Id,
+                UserId = reservation.UserId,
+                SpaceId = reservation.SpaceId,
+                StartTime = reservation.StartTime,
+                EndTime = reservation.EndTime,
+                Status = reservation.Status.ToString(),
+                TotalAmount = reservation.TotalAmount,
+                CreatedAt = reservation.CreatedAt
+            })
+            .FirstOrDefaultAsync();
 
         if (reservation is null)
         {
@@ -44,47 +64,111 @@ public class ReservationsController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<ReservationDto> Create(ReservationDto reservationDto)
+    public async Task<ActionResult<ReservationDto>> Create(ReservationDto reservationDto)
     {
-        reservationDto.Id = _nextId++;
-        reservationDto.CreatedAt = DateTime.UtcNow;
+        var userExists = await _context.Users.AnyAsync(user => user.Id == reservationDto.UserId);
 
-        Reservations.Add(reservationDto);
+        if (!userExists)
+        {
+            return BadRequest("The selected user does not exist.");
+        }
+
+        var spaceExists = await _context.Spaces.AnyAsync(space => space.Id == reservationDto.SpaceId);
+
+        if (!spaceExists)
+        {
+            return BadRequest("The selected space does not exist.");
+        }
+
+        if (reservationDto.EndTime <= reservationDto.StartTime)
+        {
+            return BadRequest("End time must be greater than start time.");
+        }
+
+        if (!Enum.TryParse<ReservationStatus>(reservationDto.Status, true, out var reservationStatus))
+        {
+            return BadRequest("Invalid reservation status.");
+        }
+
+        var reservation = new Reservation
+        {
+            UserId = reservationDto.UserId,
+            SpaceId = reservationDto.SpaceId,
+            StartTime = reservationDto.StartTime,
+            EndTime = reservationDto.EndTime,
+            Status = reservationStatus,
+            TotalAmount = reservationDto.TotalAmount,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Reservation.Add(reservation);
+        await _context.SaveChangesAsync();
+
+        reservationDto.Id = reservation.Id;
+        reservationDto.Status = reservation.Status.ToString();
+        reservationDto.CreatedAt = reservation.CreatedAt;
 
         return CreatedAtAction(nameof(GetById), new { id = reservationDto.Id }, reservationDto);
     }
 
     [HttpPut("{id:int}")]
-    public IActionResult Update(int id, ReservationDto reservationDto)
+    public async Task<IActionResult> Update(int id, ReservationDto reservationDto)
     {
-        var reservation = Reservations.FirstOrDefault(reservation => reservation.Id == id);
+        var reservation = await _context.Reservation.FindAsync(id);
 
         if (reservation is null)
         {
             return NotFound();
+        }
+
+        var userExists = await _context.Users.AnyAsync(user => user.Id == reservationDto.UserId);
+
+        if (!userExists)
+        {
+            return BadRequest("The selected user does not exist.");
+        }
+
+        var spaceExists = await _context.Spaces.AnyAsync(space => space.Id == reservationDto.SpaceId);
+
+        if (!spaceExists)
+        {
+            return BadRequest("The selected space does not exist.");
+        }
+
+        if (reservationDto.EndTime <= reservationDto.StartTime)
+        {
+            return BadRequest("End time must be greater than start time.");
+        }
+
+        if (!Enum.TryParse<ReservationStatus>(reservationDto.Status, true, out var reservationStatus))
+        {
+            return BadRequest("Invalid reservation status.");
         }
 
         reservation.UserId = reservationDto.UserId;
         reservation.SpaceId = reservationDto.SpaceId;
         reservation.StartTime = reservationDto.StartTime;
         reservation.EndTime = reservationDto.EndTime;
-        reservation.Status = reservationDto.Status;
+        reservation.Status = reservationStatus;
         reservation.TotalAmount = reservationDto.TotalAmount;
+
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var reservation = Reservations.FirstOrDefault(reservation => reservation.Id == id);
+        var reservation = await _context.Reservation.FindAsync(id);
 
         if (reservation is null)
         {
             return NotFound();
         }
 
-        Reservations.Remove(reservation);
+        _context.Reservation.Remove(reservation);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }

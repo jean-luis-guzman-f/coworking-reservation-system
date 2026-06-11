@@ -1,5 +1,8 @@
-﻿using CoworkingReservation.API.Models.DTOs;
+﻿using CoworkingReservation.API.Data;
+using CoworkingReservation.API.Models.DTOs;
+using CoworkingReservation.API.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Controllers;
 
@@ -7,30 +10,44 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private static readonly List<UserDto> Users =
-    [
-        new UserDto
-        {
-            Id = 1,
-            FullName = "Demo User",
-            Email = "demo@coworking.com",
-            PhoneNumber = "809-000-0000",
-            CreatedAt = DateTime.UtcNow
-        }
-    ];
+    private readonly ApplicationDbContext _context;
 
-    private static int _nextId = 2;
+    public UsersController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
 
     [HttpGet]
-    public ActionResult<IEnumerable<UserDto>> GetAll()
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
     {
-        return Ok(Users);
+        var users = await _context.Users
+            .Select(user => new UserDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                CreatedAt = user.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(users);
     }
 
     [HttpGet("{id:int}")]
-    public ActionResult<UserDto> GetById(int id)
+    public async Task<ActionResult<UserDto>> GetById(int id)
     {
-        var user = Users.FirstOrDefault(user => user.Id == id);
+        var user = await _context.Users
+            .Where(user => user.Id == id)
+            .Select(user => new UserDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                CreatedAt = user.CreatedAt
+            })
+            .FirstOrDefaultAsync();
 
         if (user is null)
         {
@@ -41,20 +58,29 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<UserDto> Create(UserDto userDto)
+    public async Task<ActionResult<UserDto>> Create(UserDto userDto)
     {
-        userDto.Id = _nextId++;
-        userDto.CreatedAt = DateTime.UtcNow;
+        var user = new User
+        {
+            FullName = userDto.FullName,
+            Email = userDto.Email,
+            PhoneNumber = userDto.PhoneNumber,
+            CreatedAt = DateTime.UtcNow
+        };
 
-        Users.Add(userDto);
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        userDto.Id = user.Id;
+        userDto.CreatedAt = user.CreatedAt;
 
         return CreatedAtAction(nameof(GetById), new { id = userDto.Id }, userDto);
     }
 
     [HttpPut("{id:int}")]
-    public IActionResult Update(int id, UserDto userDto)
+    public async Task<IActionResult> Update(int id, UserDto userDto)
     {
-        var user = Users.FirstOrDefault(user => user.Id == id);
+        var user = await _context.Users.FindAsync(id);
 
         if (user is null)
         {
@@ -65,20 +91,23 @@ public class UsersController : ControllerBase
         user.Email = userDto.Email;
         user.PhoneNumber = userDto.PhoneNumber;
 
+        await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var user = Users.FirstOrDefault(user => user.Id == id);
+        var user = await _context.Users.FindAsync(id);
 
         if (user is null)
         {
             return NotFound();
         }
 
-        Users.Remove(user);
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
