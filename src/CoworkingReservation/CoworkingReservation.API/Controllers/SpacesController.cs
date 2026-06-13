@@ -1,5 +1,8 @@
-﻿using CoworkingReservation.API.Models.DTOs;
+﻿using CoworkingReservation.API.Data;
+using CoworkingReservation.API.Models.DTOs;
+using CoworkingReservation.API.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Controllers;
 
@@ -7,33 +10,50 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class SpacesController : ControllerBase
 {
-    private static readonly List<SpaceDto> Spaces =
-    [
-        new SpaceDto
-        {
-            Id = 1,
-            Name = "Shared Desk A1",
-            Description = "Individual desk in the shared coworking area.",
-            Type = "Desk",
-            Capacity = 1,
-            HourlyRate = 250,
-            IsAvailable = true,
-            CreatedAt = DateTime.UtcNow
-        }
-    ];
+    private readonly ApplicationDbContext _context;
 
-    private static int _nextId = 2;
+    public SpacesController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
 
     [HttpGet]
-    public ActionResult<IEnumerable<SpaceDto>> GetAll()
+    public async Task<ActionResult<IEnumerable<SpaceDto>>> GetAll()
     {
-        return Ok(Spaces);
+        var spaces = await _context.Spaces
+            .Select(space => new SpaceDto
+            {
+                Id = space.Id,
+                Name = space.Name,
+                Description = space.Description,
+                Type = space.Type.ToString(),
+                Capacity = space.Capacity,
+                HourlyRate = space.HourlyRate,
+                IsAvailable = space.IsAvailable,
+                CreatedAt = space.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(spaces);
     }
 
     [HttpGet("{id:int}")]
-    public ActionResult<SpaceDto> GetById(int id)
+    public async Task<ActionResult<SpaceDto>> GetById(int id)
     {
-        var space = Spaces.FirstOrDefault(space => space.Id == id);
+        var space = await _context.Spaces
+            .Where(space => space.Id == id)
+            .Select(space => new SpaceDto
+            {
+                Id = space.Id,
+                Name = space.Name,
+                Description = space.Description,
+                Type = space.Type.ToString(),
+                Capacity = space.Capacity,
+                HourlyRate = space.HourlyRate,
+                IsAvailable = space.IsAvailable,
+                CreatedAt = space.CreatedAt
+            })
+            .FirstOrDefaultAsync();
 
         if (space is null)
         {
@@ -44,47 +64,73 @@ public class SpacesController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<SpaceDto> Create(SpaceDto spaceDto)
+    public async Task<ActionResult<SpaceDto>> Create(SpaceDto spaceDto)
     {
-        spaceDto.Id = _nextId++;
-        spaceDto.CreatedAt = DateTime.UtcNow;
+        if (!Enum.TryParse<SpaceType>(spaceDto.Type, true, out var spaceType))
+        {
+            return BadRequest("Invalid space type.");
+        }
 
-        Spaces.Add(spaceDto);
+        var space = new Space
+        {
+            Name = spaceDto.Name,
+            Description = spaceDto.Description,
+            Type = spaceType,
+            Capacity = spaceDto.Capacity,
+            HourlyRate = spaceDto.HourlyRate,
+            IsAvailable = spaceDto.IsAvailable,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Spaces.Add(space);
+        await _context.SaveChangesAsync();
+
+        spaceDto.Id = space.Id;
+        spaceDto.Type = space.Type.ToString();
+        spaceDto.CreatedAt = space.CreatedAt;
 
         return CreatedAtAction(nameof(GetById), new { id = spaceDto.Id }, spaceDto);
     }
 
     [HttpPut("{id:int}")]
-    public IActionResult Update(int id, SpaceDto spaceDto)
+    public async Task<IActionResult> Update(int id, SpaceDto spaceDto)
     {
-        var space = Spaces.FirstOrDefault(space => space.Id == id);
+        var space = await _context.Spaces.FindAsync(id);
 
         if (space is null)
         {
             return NotFound();
         }
 
+        if (!Enum.TryParse<SpaceType>(spaceDto.Type, true, out var spaceType))
+        {
+            return BadRequest("Invalid space type.");
+        }
+
         space.Name = spaceDto.Name;
         space.Description = spaceDto.Description;
-        space.Type = spaceDto.Type;
+        space.Type = spaceType;
         space.Capacity = spaceDto.Capacity;
         space.HourlyRate = spaceDto.HourlyRate;
         space.IsAvailable = spaceDto.IsAvailable;
+
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var space = Spaces.FirstOrDefault(space => space.Id == id);
+        var space = await _context.Spaces.FindAsync(id);
 
         if (space is null)
         {
             return NotFound();
         }
 
-        Spaces.Remove(space);
+        _context.Spaces.Remove(space);
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
