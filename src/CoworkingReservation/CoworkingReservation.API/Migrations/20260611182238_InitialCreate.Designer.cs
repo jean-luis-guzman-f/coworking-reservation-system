@@ -25,7 +25,7 @@ namespace CoworkingReservation.API.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Payment", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Payment", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -60,7 +60,7 @@ namespace CoworkingReservation.API.Migrations
                     b.ToTable("Payment");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Reservation", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Reservation", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -99,7 +99,7 @@ namespace CoworkingReservation.API.Migrations
                     b.ToTable("Reservation");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Space", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Space", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -135,7 +135,7 @@ namespace CoworkingReservation.API.Migrations
                     b.ToTable("Spaces");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.User", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -162,26 +162,26 @@ namespace CoworkingReservation.API.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Payment", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Payment", b =>
                 {
-                    b.HasOne("CoworkingReservation.API.Models.Entities.Reservation", "Reservation")
+                    b.HasOne("CoworkingReservation.Domain.Entities.Reservation", "Reservation")
                         .WithOne("Payment")
-                        .HasForeignKey("CoworkingReservation.API.Models.Entities.Payment", "ReservationId")
+                        .HasForeignKey("CoworkingReservation.Domain.Entities.Payment", "ReservationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Reservation");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Reservation", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Reservation", b =>
                 {
-                    b.HasOne("CoworkingReservation.API.Models.Entities.Space", "Space")
+                    b.HasOne("CoworkingReservation.Domain.Entities.Space", "Space")
                         .WithMany("Reservations")
                         .HasForeignKey("SpaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CoworkingReservation.API.Models.Entities.User", "User")
+                    b.HasOne("CoworkingReservation.Domain.Entities.User", "User")
                         .WithMany("Reservations")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -192,17 +192,17 @@ namespace CoworkingReservation.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Reservation", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Reservation", b =>
                 {
                     b.Navigation("Payment");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.Space", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.Space", b =>
                 {
                     b.Navigation("Reservations");
                 });
 
-            modelBuilder.Entity("CoworkingReservation.API.Models.Entities.User", b =>
+            modelBuilder.Entity("CoworkingReservation.Domain.Entities.User", b =>
                 {
                     b.Navigation("Reservations");
                 });

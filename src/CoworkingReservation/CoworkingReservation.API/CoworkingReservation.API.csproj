@@ -21,4 +21,12 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Models\Entities\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoworkingReservation.Domain\CoworkingReservation.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
