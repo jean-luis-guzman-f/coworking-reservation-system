@@ -1,8 +1,7 @@
-﻿using CoworkingReservation.Infrastructure.Context;
+﻿using CoworkingReservation.Domain.Entities;
+using CoworkingReservation.Infrastructure.Interfaces;
 using CoworkingReservation.Infrastructure.Models;
-using CoworkingReservation.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Controllers;
 
@@ -10,57 +9,56 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class SpacesController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly ISpaceRepository _spaceRepository;
 
-    public SpacesController(ApplicationDbContext context)
+    public SpacesController(ISpaceRepository spaceRepository)
     {
-        _context = context;
+        _spaceRepository = spaceRepository;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SpaceDto>>> GetAll()
     {
-        var spaces = await _context.Spaces
-            .Select(space => new SpaceDto
-            {
-                Id = space.Id,
-                Name = space.Name,
-                Description = space.Description,
-                Type = space.Type.ToString(),
-                Capacity = space.Capacity,
-                HourlyRate = space.HourlyRate,
-                IsAvailable = space.IsAvailable,
-                CreatedAt = space.CreatedAt
-            })
-            .ToListAsync();
+        var spaces = await _spaceRepository.GetAllAsync();
 
-        return Ok(spaces);
+        var spaceDtos = spaces.Select(space => new SpaceDto
+        {
+            Id = space.Id,
+            Name = space.Name,
+            Description = space.Description,
+            Type = space.Type.ToString(),
+            Capacity = space.Capacity,
+            HourlyRate = space.HourlyRate,
+            IsAvailable = space.IsAvailable,
+            CreatedAt = space.CreatedAt
+        });
+
+        return Ok(spaceDtos);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<SpaceDto>> GetById(int id)
     {
-        var space = await _context.Spaces
-            .Where(space => space.Id == id)
-            .Select(space => new SpaceDto
-            {
-                Id = space.Id,
-                Name = space.Name,
-                Description = space.Description,
-                Type = space.Type.ToString(),
-                Capacity = space.Capacity,
-                HourlyRate = space.HourlyRate,
-                IsAvailable = space.IsAvailable,
-                CreatedAt = space.CreatedAt
-            })
-            .FirstOrDefaultAsync();
+        var space = await _spaceRepository.GetByIdAsync(id);
 
         if (space is null)
         {
             return NotFound();
         }
 
-        return Ok(space);
+        var spaceDto = new SpaceDto
+        {
+            Id = space.Id,
+            Name = space.Name,
+            Description = space.Description,
+            Type = space.Type.ToString(),
+            Capacity = space.Capacity,
+            HourlyRate = space.HourlyRate,
+            IsAvailable = space.IsAvailable,
+            CreatedAt = space.CreatedAt
+        };
+
+        return Ok(spaceDto);
     }
 
     [HttpPost]
@@ -82,8 +80,7 @@ public class SpacesController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Spaces.Add(space);
-        await _context.SaveChangesAsync();
+        await _spaceRepository.AddAsync(space);
 
         spaceDto.Id = space.Id;
         spaceDto.Type = space.Type.ToString();
@@ -95,7 +92,7 @@ public class SpacesController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, SpaceDto spaceDto)
     {
-        var space = await _context.Spaces.FindAsync(id);
+        var space = await _spaceRepository.GetByIdAsync(id);
 
         if (space is null)
         {
@@ -114,7 +111,7 @@ public class SpacesController : ControllerBase
         space.HourlyRate = spaceDto.HourlyRate;
         space.IsAvailable = spaceDto.IsAvailable;
 
-        await _context.SaveChangesAsync();
+        await _spaceRepository.UpdateAsync(space);
 
         return NoContent();
     }
@@ -122,15 +119,14 @@ public class SpacesController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var space = await _context.Spaces.FindAsync(id);
+        var space = await _spaceRepository.GetByIdAsync(id);
 
         if (space is null)
         {
             return NotFound();
         }
 
-        _context.Spaces.Remove(space);
-        await _context.SaveChangesAsync();
+        await _spaceRepository.DeleteAsync(space);
 
         return NoContent();
     }
