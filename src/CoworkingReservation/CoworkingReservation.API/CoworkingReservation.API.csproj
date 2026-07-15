@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CoworkingReservation.Application\CoworkingReservation.Application.csproj" />
     <ProjectReference Include="..\CoworkingReservation.Domain\CoworkingReservation.Domain.csproj" />
     <ProjectReference Include="..\CoworkingReservation.Infrastructure\CoworkingReservation.Infrastructure.csproj" />
   </ItemGroup>
