@@ -1,8 +1,7 @@
-﻿using CoworkingReservation.Infrastructure.Context;
+﻿using CoworkingReservation.Domain.Entities;
+using CoworkingReservation.Infrastructure.Interfaces;
 using CoworkingReservation.Infrastructure.Models;
-using CoworkingReservation.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Controllers;
 
@@ -10,51 +9,50 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IUserRepository _userRepository;
 
-    public UsersController(ApplicationDbContext context)
+    public UsersController(IUserRepository userRepository)
     {
-        _context = context;
+        _userRepository = userRepository;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
     {
-        var users = await _context.Users
-            .Select(user => new UserDto
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                CreatedAt = user.CreatedAt
-            })
-            .ToListAsync();
+        var users = await _userRepository.GetAllAsync();
 
-        return Ok(users);
+        var userDtos = users.Select(user => new UserDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            CreatedAt = user.CreatedAt
+        });
+
+        return Ok(userDtos);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UserDto>> GetById(int id)
     {
-        var user = await _context.Users
-            .Where(user => user.Id == id)
-            .Select(user => new UserDto
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                CreatedAt = user.CreatedAt
-            })
-            .FirstOrDefaultAsync();
+        var user = await _userRepository.GetByIdAsync(id);
 
         if (user is null)
         {
             return NotFound();
         }
 
-        return Ok(user);
+        var userDto = new UserDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            CreatedAt = user.CreatedAt
+        };
+
+        return Ok(userDto);
     }
 
     [HttpPost]
@@ -68,8 +66,7 @@ public class UsersController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        await _userRepository.AddAsync(user);
 
         userDto.Id = user.Id;
         userDto.CreatedAt = user.CreatedAt;
@@ -80,7 +77,7 @@ public class UsersController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UserDto userDto)
     {
-        var user = await _context.Users.FindAsync(id);
+        var user = await _userRepository.GetByIdAsync(id);
 
         if (user is null)
         {
@@ -91,7 +88,7 @@ public class UsersController : ControllerBase
         user.Email = userDto.Email;
         user.PhoneNumber = userDto.PhoneNumber;
 
-        await _context.SaveChangesAsync();
+        await _userRepository.UpdateAsync(user);
 
         return NoContent();
     }
@@ -99,15 +96,14 @@ public class UsersController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var user = await _context.Users.FindAsync(id);
+        var user = await _userRepository.GetByIdAsync(id);
 
         if (user is null)
         {
             return NotFound();
         }
 
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
+        await _userRepository.DeleteAsync(user);
 
         return NoContent();
     }
