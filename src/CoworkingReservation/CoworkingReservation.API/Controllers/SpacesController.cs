@@ -1,6 +1,6 @@
 ﻿using CoworkingReservation.Domain.Entities;
 using CoworkingReservation.Infrastructure.Interfaces;
-using CoworkingReservation.Infrastructure.Models;
+using CoworkingReservation.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CoworkingReservation.API.Controllers;

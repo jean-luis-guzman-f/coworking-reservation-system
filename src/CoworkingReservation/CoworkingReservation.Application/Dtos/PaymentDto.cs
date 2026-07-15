@@ -1,4 +1,4 @@
-﻿namespace CoworkingReservation.Infrastructure.Models;
+﻿namespace CoworkingReservation.Application.Dtos;
 
 public class PaymentDto
 {
