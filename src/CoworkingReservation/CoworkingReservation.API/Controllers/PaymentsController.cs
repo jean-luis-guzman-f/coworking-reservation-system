@@ -1,5 +1,4 @@
-﻿using CoworkingReservation.Domain.Entities;
-using CoworkingReservation.Infrastructure.Interfaces;
+﻿using CoworkingReservation.Application.Contract;
 using CoworkingReservation.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,187 +8,101 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class PaymentsController : ControllerBase
 {
-    private readonly IPaymentRepository _paymentRepository;
-    private readonly IReservationRepository _reservationRepository;
+    private readonly IPaymentService _paymentService;
 
-    public PaymentsController(
-        IPaymentRepository paymentRepository,
-        IReservationRepository reservationRepository)
+    public PaymentsController(IPaymentService paymentService)
     {
-        _paymentRepository = paymentRepository;
-        _reservationRepository = reservationRepository;
+        _paymentService = paymentService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PaymentDto>>> GetAll()
     {
-        var payments = await _paymentRepository.GetAllAsync();
+        var payments = await _paymentService.GetAllAsync();
 
-        var paymentDtos = payments.Select(payment => new PaymentDto
-        {
-            Id = payment.Id,
-            ReservationId = payment.ReservationId,
-            Amount = payment.Amount,
-            Method = payment.Method.ToString(),
-            Status = payment.Status.ToString(),
-            TransactionReference = payment.TransactionReference,
-            PaymentDate = payment.PaymentDate
-        });
-
-        return Ok(paymentDtos);
+        return Ok(payments);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PaymentDto>> GetById(int id)
     {
-        var payment = await _paymentRepository.GetByIdAsync(id);
-
-        if (payment is null)
+        try
         {
-            return NotFound();
+            var payment = await _paymentService.GetByIdAsync(id);
+
+            if (payment is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(payment);
         }
-
-        var paymentDto = new PaymentDto
+        catch (ArgumentException exception)
         {
-            Id = payment.Id,
-            ReservationId = payment.ReservationId,
-            Amount = payment.Amount,
-            Method = payment.Method.ToString(),
-            Status = payment.Status.ToString(),
-            TransactionReference = payment.TransactionReference,
-            PaymentDate = payment.PaymentDate
-        };
-
-        return Ok(paymentDto);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPost]
-    public async Task<ActionResult<PaymentDto>> Create(PaymentDto paymentDto)
+    public async Task<ActionResult<PaymentDto>> Create(
+        PaymentDto paymentDto)
     {
-        var reservationExists =
-            await _reservationRepository.ExistsAsync(paymentDto.ReservationId);
-
-        if (!reservationExists)
+        try
         {
-            return BadRequest("The selected reservation does not exist.");
+            var createdPayment =
+                await _paymentService.CreateAsync(paymentDto);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = createdPayment.Id },
+                createdPayment);
         }
-
-        var reservationAlreadyHasPayment =
-            await _paymentRepository.ExistsForReservationAsync(
-                paymentDto.ReservationId);
-
-        if (reservationAlreadyHasPayment)
+        catch (ArgumentException exception)
         {
-            return BadRequest("The selected reservation already has a payment.");
+            return BadRequest(exception.Message);
         }
-
-        if (!Enum.TryParse<PaymentMethod>(
-                paymentDto.Method,
-                true,
-                out var paymentMethod))
-        {
-            return BadRequest("Invalid payment method.");
-        }
-
-        if (!Enum.TryParse<PaymentStatus>(
-                paymentDto.Status,
-                true,
-                out var paymentStatus))
-        {
-            return BadRequest("Invalid payment status.");
-        }
-
-        var payment = new Payment
-        {
-            ReservationId = paymentDto.ReservationId,
-            Amount = paymentDto.Amount,
-            Method = paymentMethod,
-            Status = paymentStatus,
-            TransactionReference = paymentDto.TransactionReference,
-            PaymentDate = DateTime.UtcNow
-        };
-
-        await _paymentRepository.AddAsync(payment);
-
-        paymentDto.Id = payment.Id;
-        paymentDto.Method = payment.Method.ToString();
-        paymentDto.Status = payment.Status.ToString();
-        paymentDto.PaymentDate = payment.PaymentDate;
-
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = paymentDto.Id },
-            paymentDto);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, PaymentDto paymentDto)
+    public async Task<IActionResult> Update(
+        int id,
+        PaymentDto paymentDto)
     {
-        var payment = await _paymentRepository.GetByIdAsync(id);
-
-        if (payment is null)
+        try
         {
-            return NotFound();
+            var updated =
+                await _paymentService.UpdateAsync(id, paymentDto);
+
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        var reservationExists =
-            await _reservationRepository.ExistsAsync(paymentDto.ReservationId);
-
-        if (!reservationExists)
+        catch (ArgumentException exception)
         {
-            return BadRequest("The selected reservation does not exist.");
+            return BadRequest(exception.Message);
         }
-
-        var reservationAlreadyHasAnotherPayment =
-            await _paymentRepository.ExistsForReservationAsync(
-                paymentDto.ReservationId,
-                id);
-
-        if (reservationAlreadyHasAnotherPayment)
-        {
-            return BadRequest(
-                "The selected reservation already has another payment.");
-        }
-
-        if (!Enum.TryParse<PaymentMethod>(
-                paymentDto.Method,
-                true,
-                out var paymentMethod))
-        {
-            return BadRequest("Invalid payment method.");
-        }
-
-        if (!Enum.TryParse<PaymentStatus>(
-                paymentDto.Status,
-                true,
-                out var paymentStatus))
-        {
-            return BadRequest("Invalid payment status.");
-        }
-
-        payment.ReservationId = paymentDto.ReservationId;
-        payment.Amount = paymentDto.Amount;
-        payment.Method = paymentMethod;
-        payment.Status = paymentStatus;
-        payment.TransactionReference = paymentDto.TransactionReference;
-
-        await _paymentRepository.UpdateAsync(payment);
-
-        return NoContent();
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var payment = await _paymentRepository.GetByIdAsync(id);
-
-        if (payment is null)
+        try
         {
-            return NotFound();
+            var deleted = await _paymentService.DeleteAsync(id);
+
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        await _paymentRepository.DeleteAsync(payment);
-
-        return NoContent();
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 }

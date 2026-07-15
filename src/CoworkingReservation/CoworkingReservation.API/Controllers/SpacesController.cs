@@ -1,5 +1,4 @@
-﻿using CoworkingReservation.Domain.Entities;
-using CoworkingReservation.Infrastructure.Interfaces;
+﻿using CoworkingReservation.Application.Contract;
 using CoworkingReservation.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,125 +8,96 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class SpacesController : ControllerBase
 {
-    private readonly ISpaceRepository _spaceRepository;
+    private readonly ISpaceService _spaceService;
 
-    public SpacesController(ISpaceRepository spaceRepository)
+    public SpacesController(ISpaceService spaceService)
     {
-        _spaceRepository = spaceRepository;
+        _spaceService = spaceService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SpaceDto>>> GetAll()
     {
-        var spaces = await _spaceRepository.GetAllAsync();
+        var spaces = await _spaceService.GetAllAsync();
 
-        var spaceDtos = spaces.Select(space => new SpaceDto
-        {
-            Id = space.Id,
-            Name = space.Name,
-            Description = space.Description,
-            Type = space.Type.ToString(),
-            Capacity = space.Capacity,
-            HourlyRate = space.HourlyRate,
-            IsAvailable = space.IsAvailable,
-            CreatedAt = space.CreatedAt
-        });
-
-        return Ok(spaceDtos);
+        return Ok(spaces);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<SpaceDto>> GetById(int id)
     {
-        var space = await _spaceRepository.GetByIdAsync(id);
-
-        if (space is null)
+        try
         {
-            return NotFound();
+            var space = await _spaceService.GetByIdAsync(id);
+
+            if (space is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(space);
         }
-
-        var spaceDto = new SpaceDto
+        catch (ArgumentException exception)
         {
-            Id = space.Id,
-            Name = space.Name,
-            Description = space.Description,
-            Type = space.Type.ToString(),
-            Capacity = space.Capacity,
-            HourlyRate = space.HourlyRate,
-            IsAvailable = space.IsAvailable,
-            CreatedAt = space.CreatedAt
-        };
-
-        return Ok(spaceDto);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPost]
     public async Task<ActionResult<SpaceDto>> Create(SpaceDto spaceDto)
     {
-        if (!Enum.TryParse<SpaceType>(spaceDto.Type, true, out var spaceType))
+        try
         {
-            return BadRequest("Invalid space type.");
+            var createdSpace = await _spaceService.CreateAsync(spaceDto);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = createdSpace.Id },
+                createdSpace);
         }
-
-        var space = new Space
+        catch (ArgumentException exception)
         {
-            Name = spaceDto.Name,
-            Description = spaceDto.Description,
-            Type = spaceType,
-            Capacity = spaceDto.Capacity,
-            HourlyRate = spaceDto.HourlyRate,
-            IsAvailable = spaceDto.IsAvailable,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _spaceRepository.AddAsync(space);
-
-        spaceDto.Id = space.Id;
-        spaceDto.Type = space.Type.ToString();
-        spaceDto.CreatedAt = space.CreatedAt;
-
-        return CreatedAtAction(nameof(GetById), new { id = spaceDto.Id }, spaceDto);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, SpaceDto spaceDto)
     {
-        var space = await _spaceRepository.GetByIdAsync(id);
-
-        if (space is null)
+        try
         {
-            return NotFound();
-        }
+            var updated = await _spaceService.UpdateAsync(id, spaceDto);
 
-        if (!Enum.TryParse<SpaceType>(spaceDto.Type, true, out var spaceType))
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+        catch (ArgumentException exception)
         {
-            return BadRequest("Invalid space type.");
+            return BadRequest(exception.Message);
         }
-
-        space.Name = spaceDto.Name;
-        space.Description = spaceDto.Description;
-        space.Type = spaceType;
-        space.Capacity = spaceDto.Capacity;
-        space.HourlyRate = spaceDto.HourlyRate;
-        space.IsAvailable = spaceDto.IsAvailable;
-
-        await _spaceRepository.UpdateAsync(space);
-
-        return NoContent();
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var space = await _spaceRepository.GetByIdAsync(id);
-
-        if (space is null)
+        try
         {
-            return NotFound();
+            var deleted = await _spaceService.DeleteAsync(id);
+
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        await _spaceRepository.DeleteAsync(space);
-
-        return NoContent();
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 }
