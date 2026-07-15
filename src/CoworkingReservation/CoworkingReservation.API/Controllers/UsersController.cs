@@ -1,5 +1,4 @@
-﻿using CoworkingReservation.Domain.Entities;
-using CoworkingReservation.Infrastructure.Interfaces;
+﻿using CoworkingReservation.Application.Contract;
 using CoworkingReservation.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,102 +8,96 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly IUserRepository _userRepository;
+    private readonly IUserService _userService;
 
-    public UsersController(IUserRepository userRepository)
+    public UsersController(IUserService userService)
     {
-        _userRepository = userRepository;
+        _userService = userService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
     {
-        var users = await _userRepository.GetAllAsync();
+        var users = await _userService.GetAllAsync();
 
-        var userDtos = users.Select(user => new UserDto
-        {
-            Id = user.Id,
-            FullName = user.FullName,
-            Email = user.Email,
-            PhoneNumber = user.PhoneNumber,
-            CreatedAt = user.CreatedAt
-        });
-
-        return Ok(userDtos);
+        return Ok(users);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<UserDto>> GetById(int id)
     {
-        var user = await _userRepository.GetByIdAsync(id);
-
-        if (user is null)
+        try
         {
-            return NotFound();
+            var user = await _userService.GetByIdAsync(id);
+
+            if (user is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(user);
         }
-
-        var userDto = new UserDto
+        catch (ArgumentException exception)
         {
-            Id = user.Id,
-            FullName = user.FullName,
-            Email = user.Email,
-            PhoneNumber = user.PhoneNumber,
-            CreatedAt = user.CreatedAt
-        };
-
-        return Ok(userDto);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPost]
     public async Task<ActionResult<UserDto>> Create(UserDto userDto)
     {
-        var user = new User
+        try
         {
-            FullName = userDto.FullName,
-            Email = userDto.Email,
-            PhoneNumber = userDto.PhoneNumber,
-            CreatedAt = DateTime.UtcNow
-        };
+            var createdUser = await _userService.CreateAsync(userDto);
 
-        await _userRepository.AddAsync(user);
-
-        userDto.Id = user.Id;
-        userDto.CreatedAt = user.CreatedAt;
-
-        return CreatedAtAction(nameof(GetById), new { id = userDto.Id }, userDto);
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = createdUser.Id },
+                createdUser);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, UserDto userDto)
     {
-        var user = await _userRepository.GetByIdAsync(id);
-
-        if (user is null)
+        try
         {
-            return NotFound();
+            var updated = await _userService.UpdateAsync(id, userDto);
+
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        user.FullName = userDto.FullName;
-        user.Email = userDto.Email;
-        user.PhoneNumber = userDto.PhoneNumber;
-
-        await _userRepository.UpdateAsync(user);
-
-        return NoContent();
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var user = await _userRepository.GetByIdAsync(id);
-
-        if (user is null)
+        try
         {
-            return NotFound();
+            var deleted = await _userService.DeleteAsync(id);
+
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        await _userRepository.DeleteAsync(user);
-
-        return NoContent();
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 }

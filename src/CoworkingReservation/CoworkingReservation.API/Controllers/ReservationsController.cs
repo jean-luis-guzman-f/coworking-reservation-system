@@ -1,5 +1,4 @@
-﻿using CoworkingReservation.Domain.Entities;
-using CoworkingReservation.Infrastructure.Interfaces;
+﻿using CoworkingReservation.Application.Contract;
 using CoworkingReservation.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,179 +8,101 @@ namespace CoworkingReservation.API.Controllers;
 [Route("api/[controller]")]
 public class ReservationsController : ControllerBase
 {
-    private readonly IReservationRepository _reservationRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly ISpaceRepository _spaceRepository;
+    private readonly IReservationService _reservationService;
 
-    public ReservationsController(
-        IReservationRepository reservationRepository,
-        IUserRepository userRepository,
-        ISpaceRepository spaceRepository)
+    public ReservationsController(IReservationService reservationService)
     {
-        _reservationRepository = reservationRepository;
-        _userRepository = userRepository;
-        _spaceRepository = spaceRepository;
+        _reservationService = reservationService;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ReservationDto>>> GetAll()
     {
-        var reservations = await _reservationRepository.GetAllAsync();
+        var reservations = await _reservationService.GetAllAsync();
 
-        var reservationDtos = reservations.Select(reservation => new ReservationDto
-        {
-            Id = reservation.Id,
-            UserId = reservation.UserId,
-            SpaceId = reservation.SpaceId,
-            StartTime = reservation.StartTime,
-            EndTime = reservation.EndTime,
-            Status = reservation.Status.ToString(),
-            TotalAmount = reservation.TotalAmount,
-            CreatedAt = reservation.CreatedAt
-        });
-
-        return Ok(reservationDtos);
+        return Ok(reservations);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ReservationDto>> GetById(int id)
     {
-        var reservation = await _reservationRepository.GetByIdAsync(id);
-
-        if (reservation is null)
+        try
         {
-            return NotFound();
+            var reservation = await _reservationService.GetByIdAsync(id);
+
+            if (reservation is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(reservation);
         }
-
-        var reservationDto = new ReservationDto
+        catch (ArgumentException exception)
         {
-            Id = reservation.Id,
-            UserId = reservation.UserId,
-            SpaceId = reservation.SpaceId,
-            StartTime = reservation.StartTime,
-            EndTime = reservation.EndTime,
-            Status = reservation.Status.ToString(),
-            TotalAmount = reservation.TotalAmount,
-            CreatedAt = reservation.CreatedAt
-        };
-
-        return Ok(reservationDto);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPost]
-    public async Task<ActionResult<ReservationDto>> Create(ReservationDto reservationDto)
+    public async Task<ActionResult<ReservationDto>> Create(
+        ReservationDto reservationDto)
     {
-        var userExists = await _userRepository.ExistsAsync(reservationDto.UserId);
-
-        if (!userExists)
+        try
         {
-            return BadRequest("The selected user does not exist.");
+            var createdReservation =
+                await _reservationService.CreateAsync(reservationDto);
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = createdReservation.Id },
+                createdReservation);
         }
-
-        var spaceExists = await _spaceRepository.ExistsAsync(reservationDto.SpaceId);
-
-        if (!spaceExists)
+        catch (ArgumentException exception)
         {
-            return BadRequest("The selected space does not exist.");
+            return BadRequest(exception.Message);
         }
-
-        if (reservationDto.EndTime <= reservationDto.StartTime)
-        {
-            return BadRequest("End time must be greater than start time.");
-        }
-
-        if (!Enum.TryParse<ReservationStatus>(
-                reservationDto.Status,
-                true,
-                out var reservationStatus))
-        {
-            return BadRequest("Invalid reservation status.");
-        }
-
-        var reservation = new Reservation
-        {
-            UserId = reservationDto.UserId,
-            SpaceId = reservationDto.SpaceId,
-            StartTime = reservationDto.StartTime,
-            EndTime = reservationDto.EndTime,
-            Status = reservationStatus,
-            TotalAmount = reservationDto.TotalAmount,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _reservationRepository.AddAsync(reservation);
-
-        reservationDto.Id = reservation.Id;
-        reservationDto.Status = reservation.Status.ToString();
-        reservationDto.CreatedAt = reservation.CreatedAt;
-
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = reservationDto.Id },
-            reservationDto);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, ReservationDto reservationDto)
+    public async Task<IActionResult> Update(
+        int id,
+        ReservationDto reservationDto)
     {
-        var reservation = await _reservationRepository.GetByIdAsync(id);
-
-        if (reservation is null)
+        try
         {
-            return NotFound();
+            var updated =
+                await _reservationService.UpdateAsync(id, reservationDto);
+
+            if (!updated)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        var userExists = await _userRepository.ExistsAsync(reservationDto.UserId);
-
-        if (!userExists)
+        catch (ArgumentException exception)
         {
-            return BadRequest("The selected user does not exist.");
+            return BadRequest(exception.Message);
         }
-
-        var spaceExists = await _spaceRepository.ExistsAsync(reservationDto.SpaceId);
-
-        if (!spaceExists)
-        {
-            return BadRequest("The selected space does not exist.");
-        }
-
-        if (reservationDto.EndTime <= reservationDto.StartTime)
-        {
-            return BadRequest("End time must be greater than start time.");
-        }
-
-        if (!Enum.TryParse<ReservationStatus>(
-                reservationDto.Status,
-                true,
-                out var reservationStatus))
-        {
-            return BadRequest("Invalid reservation status.");
-        }
-
-        reservation.UserId = reservationDto.UserId;
-        reservation.SpaceId = reservationDto.SpaceId;
-        reservation.StartTime = reservationDto.StartTime;
-        reservation.EndTime = reservationDto.EndTime;
-        reservation.Status = reservationStatus;
-        reservation.TotalAmount = reservationDto.TotalAmount;
-
-        await _reservationRepository.UpdateAsync(reservation);
-
-        return NoContent();
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var reservation = await _reservationRepository.GetByIdAsync(id);
-
-        if (reservation is null)
+        try
         {
-            return NotFound();
+            var deleted = await _reservationService.DeleteAsync(id);
+
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
-
-        await _reservationRepository.DeleteAsync(reservation);
-
-        return NoContent();
+        catch (ArgumentException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 }
