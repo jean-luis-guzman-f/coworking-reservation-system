@@ -1,7 +1,7 @@
 ﻿using CoworkingReservation.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace CoworkingReservation.API.Data;
+namespace CoworkingReservation.Infrastructure.Context;
 
 public class ApplicationDbContext : DbContext
 {

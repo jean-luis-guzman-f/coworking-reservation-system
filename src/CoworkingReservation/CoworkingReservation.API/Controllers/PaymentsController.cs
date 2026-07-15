@@ -1,5 +1,5 @@
-﻿using CoworkingReservation.API.Data;
-using CoworkingReservation.API.Models.DTOs;
+﻿using CoworkingReservation.Infrastructure.Context;
+using CoworkingReservation.Infrastructure.Models;
 using CoworkingReservation.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
