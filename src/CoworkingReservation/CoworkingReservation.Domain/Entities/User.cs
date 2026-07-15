@@ -1,4 +1,4 @@
-﻿namespace CoworkingReservation.API.Models.Entities;
+﻿namespace CoworkingReservation.Domain.Entities;
 
 public class User
 {

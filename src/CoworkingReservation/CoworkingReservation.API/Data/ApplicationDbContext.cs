@@ -1,4 +1,4 @@
-﻿using CoworkingReservation.API.Models.Entities;
+﻿using CoworkingReservation.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CoworkingReservation.API.Data;
