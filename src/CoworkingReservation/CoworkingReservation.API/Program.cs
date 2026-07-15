@@ -1,4 +1,4 @@
-using CoworkingReservation.API.Data;
+using CoworkingReservation.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);

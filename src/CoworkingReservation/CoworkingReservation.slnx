@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="CoworkingReservation.API/CoworkingReservation.API.csproj" />
   <Project Path="CoworkingReservation.Domain/CoworkingReservation.Domain.csproj" Id="9b54d350-6bce-4329-aad7-ce66f856ce02" />
+  <Project Path="CoworkingReservation.Infrastructure/CoworkingReservation.Infrastructure.csproj" Id="585efd6c-b8da-4072-96ff-35ccf08a4e70" />
 </Solution>
